@@ -527,6 +527,119 @@ function computeStatsForRooms(rooms) {
   };
 }
 
+/* ============================================================
+   Lightweight SVG Chart Helpers (no external library, offline-safe)
+   ============================================================ */
+function svgDonutChart(segments, opts = {}) {
+  const size = opts.size || 160;
+  const stroke = opts.stroke || 22;
+  const r = (size - stroke) / 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+
+  let offset = 0;
+  const arcs = segments.map(seg => {
+    const fraction = total > 0 ? seg.value / total : 0;
+    const dash = fraction * circumference;
+    const gap = circumference - dash;
+    const rotation = (offset / total) * 360 - 90;
+    offset += seg.value;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="${stroke}"
+      stroke-dasharray="${dash} ${gap}" transform="rotate(${rotation} ${cx} ${cy})" />`;
+  }).join("");
+
+  const centerLabel = opts.centerLabel || "";
+  const centerSub = opts.centerSub || "";
+
+  const legend = segments.map(seg => {
+    const pct = total > 0 ? Math.round((seg.value / total) * 100) : 0;
+    return `<div class="legend-item"><span class="legend-dot" style="background:${seg.color}"></span>${seg.label}: ${seg.value} (${pct}%)</div>`;
+  }).join("");
+
+  return `
+    <div class="chart-row">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e5e7eb" stroke-width="${stroke}" />
+        ${arcs}
+        <text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="20" font-weight="700" fill="#111827">${centerLabel}</text>
+        <text x="${cx}" y="${cy + 16}" text-anchor="middle" font-size="11" fill="#6b7280">${centerSub}</text>
+      </svg>
+      <div class="chart-legend">${legend}</div>
+    </div>
+  `;
+}
+
+function svgStackedBar(segments, opts = {}) {
+  const width = opts.width || 320;
+  const height = opts.height || 34;
+  const total = segments.reduce((s, seg) => s + Math.max(seg.value, 0), 0) || 1;
+  let x = 0;
+  const bars = segments.map(seg => {
+    const w = (Math.max(seg.value, 0) / total) * width;
+    const rect = `<rect x="${x}" y="0" width="${w}" height="${height}" fill="${seg.color}"></rect>`;
+    x += w;
+    return rect;
+  }).join("");
+
+  const legend = segments.map(seg => {
+    return `<div class="legend-item"><span class="legend-dot" style="background:${seg.color}"></span>${seg.label}: ${seg.display}</div>`;
+  }).join("");
+
+  return `
+    <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="border-radius:8px;overflow:hidden;">
+      ${bars}
+    </svg>
+    <div class="chart-legend" style="margin-top:8px;">${legend}</div>
+  `;
+}
+
+function svgLineChart(series, labels, opts = {}) {
+  const width = opts.width || 600;
+  const height = opts.height || 180;
+  const padding = { top: 16, right: 16, bottom: 26, left: 40 };
+  const innerW = width - padding.left - padding.right;
+  const innerH = height - padding.top - padding.bottom;
+
+  const allValues = series.flatMap(s => s.values);
+  const maxVal = Math.max(...allValues, 1);
+  const minVal = 0;
+  const n = labels.length;
+
+  const xFor = i => padding.left + (n <= 1 ? 0 : (i / (n - 1)) * innerW);
+  const yFor = v => padding.top + innerH - ((v - minVal) / (maxVal - minVal || 1)) * innerH;
+
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(f => {
+    const y = padding.top + innerH - f * innerH;
+    const val = Math.round(maxVal * f);
+    return `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="#e5e7eb" stroke-width="1"/>
+            <text x="${padding.left - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="#9ca3af">${val}</text>`;
+  }).join("");
+
+  const xLabels = labels.map((lab, i) => {
+    if (n > 10 && i % Math.ceil(n / 10) !== 0 && i !== n - 1) return "";
+    return `<text x="${xFor(i)}" y="${height - 6}" text-anchor="middle" font-size="9" fill="#9ca3af">${lab}</text>`;
+  }).join("");
+
+  const paths = series.map(s => {
+    const points = s.values.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ");
+    const dots = s.values.map((v, i) => `<circle cx="${xFor(i)}" cy="${yFor(v)}" r="2.5" fill="${s.color}"/>`).join("");
+    return `<polyline points="${points}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>${dots}`;
+  }).join("");
+
+  const legend = series.map(s => `<div class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.label}</div>`).join("");
+
+  return `
+    <svg width="100%" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet">
+      ${gridLines}
+      ${paths}
+      ${xLabels}
+    </svg>
+    <div class="chart-legend">${legend}</div>
+  `;
+}
+
 function renderCategoryTable(categories) {
   const rows = STATUS_ORDER.map(key => {
     const c = categories[key];
@@ -592,14 +705,32 @@ function renderDayReport() {
   const cleaningMs = stats.totalMs;
   const idleMs = (attendanceMs != null) ? Math.max(attendanceMs - cleaningMs, 0) : null;
 
+  const colorDonut = svgDonutChart([
+    { label: "Blau", value: stats.categories.blue.count, color: "#2563eb" },
+    { label: "Rot", value: stats.categories.red.count, color: "#dc2626" },
+    { label: "Gelb", value: stats.categories.yellow.count, color: "#ca8a04" }
+  ], { centerLabel: String(stats.totalRooms), centerSub: "Zimmer" });
+
+  const wageDonut = svgDonutChart([
+    { label: "Normal", value: Number((stats.normalCount * getSettings().wageNormal).toFixed(2)), color: "#2563eb" },
+    { label: "Suite", value: Number((stats.suiteCount * getSettings().wageSuite).toFixed(2)), color: "#7c3aed" }
+  ], { centerLabel: stats.income.toFixed(2) + " €", centerSub: "Verdienst" });
+
+  const timeBarHtml = (attendanceMs != null) ? svgStackedBar([
+    { label: "Reinigung", value: cleaningMs, color: "#2563eb", display: formatDuration(cleaningMs) },
+    { label: "Leerlauf/Pause", value: idleMs, color: "#f59e0b", display: formatDuration(idleMs) }
+  ]) : `<p style="color:var(--muted);font-size:13px;">Kommen/Gehen noch nicht vollständig erfasst.</p>`;
+
   return `
     <div class="report-card">
       <h3>Tagesbericht – ${formatDateLabel(state.currentDate)}</h3>
       ${statBoxes(stats)}
       <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Reinigungszeit nach Farbe</h4>
       ${renderCategoryTable(stats.categories)}
+      <div class="chart-block">${colorDonut}</div>
       <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Verdienst nach Zimmertyp</h4>
       ${renderWageTable(stats)}
+      <div class="chart-block">${wageDonut}</div>
     </div>
     <div class="report-card">
       <h3>Anwesenheit vs. Reinigungszeit</h3>
@@ -608,14 +739,16 @@ function renderDayReport() {
         <div class="stat-box"><div class="stat-value">${formatDuration(cleaningMs)}</div><div class="stat-label">Reine Reinigungszeit</div></div>
         <div class="stat-box"><div class="stat-value">${idleMs != null ? formatDuration(idleMs) : "–"}</div><div class="stat-label">Leerlauf-/Pausenzeit</div></div>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px;">
+      <div style="font-size:12px;color:var(--muted);margin:6px 0 12px;">
         Kommen: ${formatTime(kommen)} · Gehen: ${formatTime(gehen)}
       </div>
+      <div class="chart-block">${timeBarHtml}</div>
     </div>
   `;
 }
 
 /* ---------- Month report ---------- */
+
 function renderMonthReport() {
   const d = parseDateKey(state.currentDate);
   const year = d.getFullYear();
@@ -647,14 +780,44 @@ function renderMonthReport() {
     </tr>`;
   }).join("");
 
+  const colorDonut = svgDonutChart([
+    { label: "Blau", value: stats.categories.blue.count, color: "#2563eb" },
+    { label: "Rot", value: stats.categories.red.count, color: "#dc2626" },
+    { label: "Gelb", value: stats.categories.yellow.count, color: "#ca8a04" }
+  ], { centerLabel: String(stats.totalRooms), centerSub: "Zimmer" });
+
+  const wageDonut = svgDonutChart([
+    { label: "Normal", value: Number((stats.normalCount * getSettings().wageNormal).toFixed(2)), color: "#2563eb" },
+    { label: "Suite", value: Number((stats.suiteCount * getSettings().wageSuite).toFixed(2)), color: "#7c3aed" }
+  ], { centerLabel: stats.income.toFixed(2) + " €", centerSub: "Verdienst" });
+
+  const dailyIncomeChart = dateKeys.length > 0 ? svgLineChart(
+    [{ label: "Verdienst (€)", color: "#16a34a", values: dateKeys.map(dk => Number(computeStatsForRooms(byDate[dk]).income.toFixed(2))) }],
+    dateKeys.map(dk => parseDateKey(dk).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }))
+  ) : `<p style="color:var(--muted);font-size:13px;">Keine Daten für ein Diagramm vorhanden.</p>`;
+
+  const dailyRoomsChart = dateKeys.length > 0 ? svgLineChart(
+    [{ label: "Gereinigte Zimmer", color: "#2563eb", values: dateKeys.map(dk => computeStatsForRooms(byDate[dk]).totalCleaned) }],
+    dateKeys.map(dk => parseDateKey(dk).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" }))
+  ) : "";
+
   return `
     <div class="report-card">
       <h3>Monatsbericht – ${monthLabel}</h3>
       ${statBoxes(stats)}
       <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Reinigungszeit nach Farbe</h4>
       ${renderCategoryTable(stats.categories)}
+      <div class="chart-block">${colorDonut}</div>
       <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Verdienst nach Zimmertyp</h4>
       ${renderWageTable(stats)}
+      <div class="chart-block">${wageDonut}</div>
+    </div>
+    <div class="report-card">
+      <h3>Verlauf im Monat</h3>
+      <h4 style="margin:0 0 6px;font-size:14px;color:var(--muted);">Täglicher Verdienst</h4>
+      <div class="chart-block">${dailyIncomeChart}</div>
+      <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Gereinigte Zimmer pro Tag</h4>
+      <div class="chart-block">${dailyRoomsChart}</div>
     </div>
     <div class="report-card">
       <h3>Tägliche Übersicht</h3>
@@ -669,6 +832,7 @@ function renderMonthReport() {
 }
 
 /* ---------- Year report ---------- */
+
 function renderYearReport() {
   const d = parseDateKey(state.currentDate);
   const year = d.getFullYear();
@@ -684,7 +848,8 @@ function renderYearReport() {
   });
 
   const monthNames = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
-  const monthRows = Object.keys(byMonth).sort((a, b) => a - b).map(m => {
+  const monthKeysSorted = Object.keys(byMonth).sort((a, b) => a - b);
+  const monthRows = monthKeysSorted.map(m => {
     const s = computeStatsForRooms(byMonth[m]);
     const monthKey = `${year}-${String(Number(m) + 1).padStart(2, "0")}`;
     return `<tr class="clickable-row" data-navigate-month="${monthKey}">
@@ -696,14 +861,44 @@ function renderYearReport() {
     </tr>`;
   }).join("");
 
+  const colorDonut = svgDonutChart([
+    { label: "Blau", value: stats.categories.blue.count, color: "#2563eb" },
+    { label: "Rot", value: stats.categories.red.count, color: "#dc2626" },
+    { label: "Gelb", value: stats.categories.yellow.count, color: "#ca8a04" }
+  ], { centerLabel: String(stats.totalRooms), centerSub: "Zimmer" });
+
+  const wageDonut = svgDonutChart([
+    { label: "Normal", value: Number((stats.normalCount * getSettings().wageNormal).toFixed(2)), color: "#2563eb" },
+    { label: "Suite", value: Number((stats.suiteCount * getSettings().wageSuite).toFixed(2)), color: "#7c3aed" }
+  ], { centerLabel: stats.income.toFixed(2) + " €", centerSub: "Verdienst" });
+
+  const monthlyIncomeChart = monthKeysSorted.length > 0 ? svgLineChart(
+    [{ label: "Verdienst (€)", color: "#16a34a", values: monthKeysSorted.map(m => Number(computeStatsForRooms(byMonth[m]).income.toFixed(2))) }],
+    monthKeysSorted.map(m => monthNames[m])
+  ) : `<p style="color:var(--muted);font-size:13px;">Keine Daten für ein Diagramm vorhanden.</p>`;
+
+  const monthlyRoomsChart = monthKeysSorted.length > 0 ? svgLineChart(
+    [{ label: "Gereinigte Zimmer", color: "#2563eb", values: monthKeysSorted.map(m => computeStatsForRooms(byMonth[m]).totalCleaned) }],
+    monthKeysSorted.map(m => monthNames[m])
+  ) : "";
+
   return `
     <div class="report-card">
       <h3>Jahresbericht – ${year}</h3>
       ${statBoxes(stats)}
       <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Reinigungszeit nach Farbe</h4>
       ${renderCategoryTable(stats.categories)}
+      <div class="chart-block">${colorDonut}</div>
       <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Verdienst nach Zimmertyp</h4>
       ${renderWageTable(stats)}
+      <div class="chart-block">${wageDonut}</div>
+    </div>
+    <div class="report-card">
+      <h3>Verlauf im Jahr</h3>
+      <h4 style="margin:0 0 6px;font-size:14px;color:var(--muted);">Monatlicher Verdienst</h4>
+      <div class="chart-block">${monthlyIncomeChart}</div>
+      <h4 style="margin:14px 0 6px;font-size:14px;color:var(--muted);">Gereinigte Zimmer pro Monat</h4>
+      <div class="chart-block">${monthlyRoomsChart}</div>
     </div>
     <div class="report-card">
       <h3>Monatliche Übersicht</h3>
@@ -720,6 +915,7 @@ function renderYearReport() {
 /* ============================================================
    Tab switching
    ============================================================ */
+
 function renderTab() {
   const roomsSection = document.querySelector(".rooms-section");
   const shiftCard = document.getElementById("shiftCard");

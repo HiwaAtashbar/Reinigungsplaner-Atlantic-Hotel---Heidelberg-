@@ -1,39 +1,47 @@
-# Reinigungsplaner – Kritischer Bugfix (01.08.2026, Version 6)
+# Reinigungsplaner – Grafische Auswertungen (01.08.2026, Version 7)
 
-## Gefundener Fehler
+## Neue Funktion: Diagramme in allen Berichten
 
-In der vorherigen Version (5) gab es einen JavaScript-Fehler: Beim Entfernen des Feldes "Zweite Zimmernummer der Suite" wurde eine Zeile übersehen, die noch auf eine nicht mehr existierende Funktion (toggleSuitePartnerField) verwies. Dieser Fehler trat direkt beim Start der App in der Funktion bindEvents() auf und verhinderte, dass IRGENDEIN Button in der App funktionierte – Bearbeiten, Einstellungen, Tag/Monat/Jahr-Berichte, Sperren/Entsperren, Speichern usw. waren alle nicht mehr klickbar.
+Es wurden grafische Diagramme zu den Berichten Tag, Monat und Jahr hinzugefügt – ganz ohne externe Bibliothek aus dem Internet, sondern mit eigens programmierten, leichten SVG-Diagrammen. Dadurch funktionieren die Diagramme auch offline, ohne zusätzliche Downloads und ohne dass die App-Größe spürbar wächst.
 
-## Behebung
+### Tagesbericht
+- Donut-Diagramm "Reinigungszeit nach Farbe": zeigt den Anteil von Blau/Rot/Gelb an der Gesamtzahl der Zimmer.
+- Donut-Diagramm "Verdienst nach Zimmertyp": zeigt den Anteil des Verdiensts aus normalen Zimmern vs. Suiten.
+- Balkendiagramm "Anwesenheit vs. Reinigungszeit": zeigt visuell, wie viel der Anwesenheitszeit tatsächlich mit Reinigung verbracht wurde und wie viel Leerlauf/Pause war.
 
-Die fehlerhafte Zeile wurde entfernt. Die App wurde anschließend vollständig automatisiert getestet (alle Buttons, alle Modals, alle drei Berichte, Speichern/Laden von Zimmern und Arbeitszeiten) und funktioniert jetzt wieder einwandfrei.
+### Monatsbericht
+- Die gleichen zwei Donut-Diagramme (Farbe / Verdienst), aber für den gesamten Monat.
+- Liniendiagramm "Täglicher Verdienst": zeigt den Verdienst-Verlauf Tag für Tag im Monat.
+- Liniendiagramm "Gereinigte Zimmer pro Tag": zeigt die Auslastung im Zeitverlauf.
 
-## Vollständige Prüfung durchgeführt
+### Jahresbericht
+- Die gleichen zwei Donut-Diagramme (Farbe / Verdienst), aber für das gesamte Jahr.
+- Liniendiagramm "Monatlicher Verdienst": zeigt den Verdienst-Trend über alle 12 Monate.
+- Liniendiagramm "Gereinigte Zimmer pro Monat": zeigt saisonale Muster der Auslastung.
 
-Folgende Funktionen wurden einzeln automatisiert getestet und funktionieren nachweislich:
+## Welche Analysen lassen sich daraus ableiten?
 
-- bindEvents() – alle Event-Listener werden korrekt registriert
-- renderAll() – Header, Arbeitszeit, Zimmerliste
-- Tagesbericht, Monatsbericht, Jahresbericht – inkl. Verdienst- und Farb-Tabellen
-- Einstellungen speichern
-- Zimmer hinzufügen/bearbeiten/speichern
-- Arbeitszeit (Kommen/Gehen) bearbeiten
+- **Effizienz**: Wie viel der Anwesenheitszeit im Hotel wird tatsächlich für Reinigung genutzt (Tagesbericht-Balken)?
+- **Einkommensverteilung**: Wie viel des Verdiensts stammt von Suiten (höherer Lohn) im Vergleich zu normalen Zimmern?
+- **Trends**: Steigt oder sinkt der Verdienst bzw. die Anzahl gereinigter Zimmer im Laufe des Monats/Jahres?
+- **Farbverteilung**: Überwiegen Abreise-Zimmer (Blau/Rot) oder Aufenthalts-Zimmer (Gelb) – das beeinflusst Arbeitsaufwand und Planung.
+- **Saisonale Muster**: Im Jahresbericht lässt sich erkennen, in welchen Monaten die Auslastung (und damit der Verdienst) am höchsten ist.
 
-## Alle bisherigen Funktionen bleiben erhalten
+## Bereits enthaltene frühere Änderungen
 
-- Alle Daten jederzeit editierbar, auch an gesperrten Tagen
-- Start-/Endzeit der Reinigung manuell editierbar
-- Kommen-/Gehen-Zeit über "Bearbeiten"-Link editierbar
-- Feld "Zweite Zimmernummer der Suite" entfernt
-- Getrennte Tabellen "Reinigungszeit nach Farbe" (Blau/Rot/Gelb, WW zählt in Farbzeile mit) und "Verdienst nach Zimmertyp" (Normal/Suite)
-- Klickbare Zeilen in Monats-/Jahresbericht zur direkten Navigation und Bearbeitung
-- Tagesbericht zeigt Anwesenheit, reine Reinigungszeit und Leerlaufzeit
+- Kritischer Bug behoben, durch den zuvor alle Buttons (Bearbeiten, Einstellungen, Berichte) nicht funktionierten.
+- Alle Daten jederzeit editierbar, auch an gesperrten Tagen.
+- Start-/Endzeit der Reinigung und Kommen-/Gehen-Zeit manuell editierbar.
+- Feld "Zweite Zimmernummer der Suite" entfernt.
+- WW-Zimmer haben keine eigene Zeile in den Farb-Tabellen mehr (zählen zur jeweiligen Farbe).
+- Getrennte Tabelle "Verdienst nach Zimmertyp" (Normal 5,00 € / Suite 6,50 €).
+- Klickbare Zeilen in Monats-/Jahresbericht zur direkten Navigation und Bearbeitung.
 
 ## Installation
 
-1. ALLE Dateien in Ihr GitHub-Repository hochladen und bestehende Dateien vollständig überschreiben (am besten alte Dateien im Repository zuerst löschen, dann neu hochladen).
-2. Warten Sie 1–2 Minuten, bis GitHub Pages neu gebaut hat.
-3. App auf dem Handy: Browser-Cache/App-Daten leeren oder im Inkognito-Modus testen, da der Service Worker alte Dateien zwischenspeichert.
+1. Alle Dateien in Ihr GitHub-Repository hochladen (bestehende Dateien vollständig überschreiben, am besten alte zuerst löschen).
+2. 1–2 Minuten warten, bis GitHub Pages neu gebaut hat.
+3. App auf dem Handy: Cache leeren bzw. PWA neu installieren, damit der Service Worker die neue Version lädt.
 
 ## Dateistruktur
 

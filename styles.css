@@ -439,3 +439,10 @@ table.report-table th { color: var(--muted); font-weight: 600; }
 
 .clickable-row { cursor: pointer; }
 .clickable-row:active { background: rgba(37,99,235,0.08); }
+
+.chart-block { margin: 10px 0 4px; }
+.chart-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.chart-row svg { flex-shrink: 0; }
+.chart-legend { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text); }
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
