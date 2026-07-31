@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2563eb">
+<title>Reinigungsplaner</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-top">
+    <h1>Reinigungsplaner</h1>
+    <div class="header-actions">
+      <button id="btnSettings" class="icon-btn" title="Einstellungen">⚙️</button>
+      <button id="btnLock" class="icon-btn" title="Tag sperren/entsperren">🔒</button>
+    </div>
+  </div>
+  <div class="date-nav">
+    <button id="btnPrevDay" class="nav-btn">◀</button>
+    <div class="current-date" id="currentDateLabel">Heute</div>
+    <button id="btnNextDay" class="nav-btn">▶</button>
+    <button id="btnToday" class="today-btn" title="Zu heute springen">Heute</button>
+  </div>
+</header>
+
+<div id="lockBanner" class="lock-banner hidden">
+  <span>🔒 Dieser Tag ist gesperrt.</span>
+  <button id="btnUnlock" class="link-btn">Bearbeitung entsperren</button>
+</div>
+
+<main>
+  <section class="shift-card" id="shiftCard">
+    <div class="section-header">
+      <h2>Arbeitszeit</h2>
+      <button id="btnEditShift" class="link-btn">Bearbeiten</button>
+    </div>
+    <div class="shift-row">
+      <button id="btnKommen" class="shift-btn kommen">Kommen</button>
+      <button id="btnGehen" class="shift-btn gehen">Gehen</button>
+    </div>
+    <div class="shift-info" id="shiftInfo">–</div>
+  </section>
+
+  <section class="rooms-section">
+    <div class="section-header">
+      <h2>Zimmer</h2>
+      <span class="room-count" id="roomCount">0 Zimmer</span>
+    </div>
+    <div id="roomList" class="room-list"></div>
+    <div id="emptyState" class="empty-state hidden">Keine Zimmer für diesen Tag eingetragen.</div>
+  </section>
+</main>
+
+<button id="btnAddRoom" class="fab" title="Zimmer hinzufügen">+</button>
+
+<nav class="bottom-tabs">
+  <button class="tab-btn active" data-tab="rooms">Zimmer</button>
+  <button class="tab-btn" data-tab="day">Tag</button>
+  <button class="tab-btn" data-tab="month">Monat</button>
+  <button class="tab-btn" data-tab="year">Jahr</button>
+</nav>
+
+<div id="reportView" class="report-view hidden"></div>
+
+<!-- Room Add/Edit Modal -->
+<div id="roomModal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="roomModalTitle">Zimmer hinzufügen</h3>
+    <label>Zimmernummer
+      <input type="text" id="inputRoomNumber" placeholder="z. B. 214">
+    </label>
+    <label>Status
+      <select id="inputStatus">
+        <option value="blue">🔵 Abreise – neu vermietet (Priorität 1)</option>
+        <option value="red">🔴 Abreise – nicht vermietet</option>
+        <option value="yellow">🟡 Bleibt (Aufenthalt)</option>
+      </select>
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" id="inputWW">
+      WW – Kompletter Wäschewechsel
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" id="inputIsSuite">
+      Doppelzimmer-Suite (2 Zimmer)
+    </label>
+    <div class="settings-divider"></div>
+    <label>Startzeit (HH:MM:SS)
+      <input type="text" id="inputStartTime" placeholder="z. B. 09:15:00" pattern="[0-9]{2}:[0-9]{2}(:[0-9]{2})?">
+    </label>
+    <label>Endzeit (HH:MM:SS)
+      <input type="text" id="inputEndTime" placeholder="z. B. 09:40:00" pattern="[0-9]{2}:[0-9]{2}(:[0-9]{2})?">
+    </label>
+    <div class="modal-actions">
+      <button id="btnDeleteRoom" class="btn danger hidden">Löschen</button>
+      <button id="btnCancelRoom" class="btn secondary">Abbrechen</button>
+      <button id="btnSaveRoom" class="btn primary">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Einstellungen</h3>
+    <label>Lohn pro normalem Zimmer (€)
+      <input type="number" step="0.1" id="inputWageNormal">
+    </label>
+    <label>Lohn pro Doppelzimmer-Suite (€)
+      <input type="number" step="0.1" id="inputWageSuite">
+    </label>
+    <div class="settings-divider"></div>
+    <h4>Daten sichern</h4>
+    <div class="modal-actions column">
+      <button id="btnExportData" class="btn secondary full">Daten exportieren</button>
+      <label class="btn secondary full file-label">
+        Daten importieren
+        <input type="file" id="inputImportFile" accept="application/json" class="hidden">
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button id="btnCloseSettings" class="btn secondary">Schließen</button>
+      <button id="btnSaveSettings" class="btn primary">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shift Edit Modal -->
+<div id="shiftModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Arbeitszeit bearbeiten</h3>
+    <label>Kommen (HH:MM:SS)
+      <input type="text" id="inputKommenTime" placeholder="z. B. 08:00:00" pattern="[0-9]{2}:[0-9]{2}(:[0-9]{2})?">
+    </label>
+    <label>Gehen (HH:MM:SS)
+      <input type="text" id="inputGehenTime" placeholder="z. B. 16:30:00" pattern="[0-9]{2}:[0-9]{2}(:[0-9]{2})?">
+    </label>
+    <div class="modal-actions">
+      <button id="btnCancelShift" class="btn secondary">Abbrechen</button>
+      <button id="btnSaveShift" class="btn primary">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
