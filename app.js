@@ -859,8 +859,6 @@ function bindEvents() {
   document.getElementById("btnDeleteRoom").addEventListener("click", () => {
     if (confirm("Dieses Zimmer wirklich löschen?")) deleteRoomFromModal();
   });
-  document.getElementById("inputIsSuite").addEventListener("change", toggleSuitePartnerField);
-
   document.getElementById("roomList").addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
