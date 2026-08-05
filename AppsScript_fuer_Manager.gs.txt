@@ -1,0 +1,98 @@
+/**
+ * Reinigungsplaner - Zentraler Google Apps Script Webhook
+ * ------------------------------------------------------------
+ * Dieses Skript wird EINMALIG vom Manager/Besitzer des Google-Kontos
+ * eingerichtet. Danach koennen ALLE Mitarbeiter Berichte an dieses
+ * Skript senden, ohne sich selbst bei Google anzumelden.
+ * Alle Berichte landen automatisch im Google Drive DIESES Kontos
+ * (also im Drive des Managers), in einem Ordner "Reinigungsplaner-Berichte".
+ *
+ * INSTALLATION (nur einmal noetig):
+ * 1. Gehen Sie zu https://script.google.com und klicken Sie auf
+ *    "Neues Projekt".
+ * 2. Loeschen Sie den Beispielcode und fuegen Sie diesen gesamten Code ein.
+ * 3. Klicken Sie oben rechts auf "Bereitstellen" -> "Neue Bereitstellung".
+ * 4. Waehlen Sie als Typ "Web App".
+ * 5. "Ausfuehren als": Ich (Ihr eigenes Konto)
+ * 6. "Wer hat Zugriff": Jeder (Anyone)
+ * 7. Klicken Sie auf "Bereitstellen" und bestaetigen Sie die
+ *    Berechtigungen (Zugriff auf Ihr eigenes Google Drive).
+ * 8. Kopieren Sie die angezeigte "Web-App-URL" (endet auf /exec).
+ * 9. Diese URL geben Sie an ALLE Mitarbeiter weiter - sie tragen sie
+ *    in den Einstellungen der App unter "Webhook-URL" ein.
+ *
+ * Jeder Bericht wird als einzelne .txt-Datei UND zusaetzlich in einer
+ * zentralen CSV-Tabelle "Alle_Berichte.csv" im selben Ordner gesammelt,
+ * damit der Manager schnell einen Gesamtueberblick ueber alle
+ * Mitarbeiter hat.
+ */
+
+const REPORTS_FOLDER_NAME = "Reinigungsplaner-Berichte";
+const CSV_FILE_NAME = "Alle_Berichte.csv";
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const folder = getOrCreateReportsFolder();
+
+    const fileName = data.fileName || ("Bericht_" + new Date().getTime() + ".txt");
+    folder.createFile(fileName, data.reportText || JSON.stringify(data), MimeType.PLAIN_TEXT);
+
+    appendToCsv(folder, data);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "ok" }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", message: err.message }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function getOrCreateReportsFolder() {
+  const folders = DriveApp.getFoldersByName(REPORTS_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  return DriveApp.createFolder(REPORTS_FOLDER_NAME);
+}
+
+function appendToCsv(folder, data) {
+  const files = folder.getFilesByName(CSV_FILE_NAME);
+  let file;
+  let content;
+
+  const row = [
+    data.date || "",
+    data.employeeName || "",
+    data.employeeEmail || "",
+    data.roomNumber || "",
+    data.status || "",
+    data.ww ? "Ja" : "Nein",
+    data.isSuite ? "Ja" : "Nein",
+    data.startTime ? new Date(data.startTime).toLocaleString("de-DE") : "",
+    data.endTime ? new Date(data.endTime).toLocaleString("de-DE") : "",
+    data.durationMs ? Math.round(data.durationMs / 60000) + " Min" : "",
+    data.wage != null ? data.wage.toFixed(2) + " EUR" : "",
+    new Date().toLocaleString("de-DE")
+  ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",");
+
+  if (files.hasNext()) {
+    file = files.next();
+    content = file.getBlob().getDataAsString("UTF-8") + "\n" + row;
+    file.setContent(content);
+  } else {
+    const header = ["Datum","Mitarbeiter","E-Mail","Zimmer","Status","WW","Suite","Start","Ende","Dauer","Lohn","Empfangen am"]
+      .map(v => '"' + v + '"').join(",");
+    content = header + "\n" + row;
+    folder.createFile(CSV_FILE_NAME, content, MimeType.CSV);
+  }
+}
+
+function testSetup() {
+  const folder = getOrCreateReportsFolder();
+  Logger.log("Ordner-ID: " + folder.getId());
+  Logger.log("Ordner-URL: " + folder.getUrl());
+}

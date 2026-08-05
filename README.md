@@ -1,48 +1,60 @@
-# Reinigungsplaner – Grafische Auswertungen (01.08.2026, Version 7)
+# Reinigungsplaner - Zentrales Google Drive fuer alle Mitarbeiter (04.08.2026, Version 9)
 
-## Neue Funktion: Diagramme in allen Berichten
+## Wichtige Aenderung gegenueber der letzten Version
 
-Es wurden grafische Diagramme zu den Berichten Tag, Monat und Jahr hinzugefügt – ganz ohne externe Bibliothek aus dem Internet, sondern mit eigens programmierten, leichten SVG-Diagrammen. Dadurch funktionieren die Diagramme auch offline, ohne zusätzliche Downloads und ohne dass die App-Größe spürbar wächst.
+In der vorherigen Version wurde jeder Zimmerbericht in das Google Drive DES JEWEILIGEN MITARBEITERS gesendet (da Google aus Sicherheitsgruenden keinen direkten Zugriff auf das Drive einer anderen Person erlaubt). Das entspricht nicht Ihrem Ziel, alle Berichte zentral im EIGENEN Drive (Manager) zu sammeln.
 
-### Tagesbericht
-- Donut-Diagramm "Reinigungszeit nach Farbe": zeigt den Anteil von Blau/Rot/Gelb an der Gesamtzahl der Zimmer.
-- Donut-Diagramm "Verdienst nach Zimmertyp": zeigt den Anteil des Verdiensts aus normalen Zimmern vs. Suiten.
-- Balkendiagramm "Anwesenheit vs. Reinigungszeit": zeigt visuell, wie viel der Anwesenheitszeit tatsächlich mit Reinigung verbracht wurde und wie viel Leerlauf/Pause war.
+Die neue Loesung verwendet daher ein "Google Apps Script Webhook", das NUR EINMAL vom Manager eingerichtet wird. Danach koennen beliebig viele Mitarbeiter ihre Berichte an eine feste Internetadresse senden, OHNE sich selbst bei Google anzumelden - und alle Daten landen automatisch im Google Drive des Managers.
 
-### Monatsbericht
-- Die gleichen zwei Donut-Diagramme (Farbe / Verdienst), aber für den gesamten Monat.
-- Liniendiagramm "Täglicher Verdienst": zeigt den Verdienst-Verlauf Tag für Tag im Monat.
-- Liniendiagramm "Gereinigte Zimmer pro Tag": zeigt die Auslastung im Zeitverlauf.
+## Einmalige Einrichtung durch den MANAGER
 
-### Jahresbericht
-- Die gleichen zwei Donut-Diagramme (Farbe / Verdienst), aber für das gesamte Jahr.
-- Liniendiagramm "Monatlicher Verdienst": zeigt den Verdienst-Trend über alle 12 Monate.
-- Liniendiagramm "Gereinigte Zimmer pro Monat": zeigt saisonale Muster der Auslastung.
+1. Gehen Sie zu https://script.google.com und erstellen Sie ein neues Projekt.
+2. Kopieren Sie den gesamten Inhalt der Datei "AppsScript_fuer_Manager.gs.txt" (im ZIP enthalten) in den Skript-Editor.
+3. Klicken Sie oben rechts auf "Bereitstellen" -> "Neue Bereitstellung".
+4. Typ: "Web App" auswaehlen.
+5. "Ausfuehren als": Ich (Ihr eigenes Konto) - WICHTIG, damit die Daten in Ihr Drive gehen.
+6. "Wer hat Zugriff": Jeder (Anyone) - damit alle Mitarbeiter senden koennen, ohne sich anzumelden.
+7. Auf "Bereitstellen" klicken und die Berechtigungen fuer Zugriff auf Ihr eigenes Drive bestaetigen.
+8. Die angezeigte Web-App-URL (endet auf /exec) kopieren.
 
-## Welche Analysen lassen sich daraus ableiten?
+Diese URL ist Ihr "Webhook". Alle Berichte werden automatisch in einem Ordner "Reinigungsplaner-Berichte" in IHREM Google Drive gespeichert - sowohl als einzelne Textdatei pro Zimmer als auch gesammelt in einer zentralen Tabelle "Alle_Berichte.csv" mit Spalten fuer Mitarbeitername, E-Mail, Datum, Zimmer, Status, Zeiten und Lohn.
 
-- **Effizienz**: Wie viel der Anwesenheitszeit im Hotel wird tatsächlich für Reinigung genutzt (Tagesbericht-Balken)?
-- **Einkommensverteilung**: Wie viel des Verdiensts stammt von Suiten (höherer Lohn) im Vergleich zu normalen Zimmern?
-- **Trends**: Steigt oder sinkt der Verdienst bzw. die Anzahl gereinigter Zimmer im Laufe des Monats/Jahres?
-- **Farbverteilung**: Überwiegen Abreise-Zimmer (Blau/Rot) oder Aufenthalts-Zimmer (Gelb) – das beeinflusst Arbeitsaufwand und Planung.
-- **Saisonale Muster**: Im Jahresbericht lässt sich erkennen, in welchen Monaten die Auslastung (und damit der Verdienst) am höchsten ist.
+## Einrichtung fuer JEDEN MITARBEITER (in der App)
 
-## Bereits enthaltene frühere Änderungen
+1. App oeffnen -> Einstellungen (Zahnrad-Symbol).
+2. Im Bereich "Google Drive - Automatischer Upload":
+   - Checkbox aktivieren.
+   - Eigenen Namen eingeben (erscheint im Bericht, damit Sie als Manager sehen, wer welches Zimmer gereinigt hat).
+   - Optional die eigene E-Mail-Adresse eingeben.
+   - Die Webhook-URL eintragen, die Sie vom Manager erhalten haben.
+3. Auf "Speichern" klicken, danach auf "Verbindung testen" klicken, um zu prüfen, ob alles funktioniert.
 
-- Kritischer Bug behoben, durch den zuvor alle Buttons (Bearbeiten, Einstellungen, Berichte) nicht funktionierten.
+Ab sofort wird nach jedem Klick auf "Ende" bei einem Zimmer automatisch ein Bericht an den Manager gesendet - voellig ohne eigenes Google-Konto des Mitarbeiters.
+
+## Warum diese Loesung fuer die Mitarbeiterverwaltung ideal ist
+
+- Der Manager sieht ALLE Mitarbeiter zentral an einem Ort (eigenes Google Drive), unabhaengig davon, wie viele Reinigungskraefte die App nutzen.
+- Jeder Bericht ist eindeutig einem Namen zugeordnet.
+- Die zentrale CSV-Datei kann direkt in Google Sheets geoeffnet werden, um Leistung, Zeiten und Verdienst aller Mitarbeiter zu vergleichen.
+- Mitarbeiter benoetigen kein eigenes Google-Konto und muessen sich nirgends anmelden - nur die Webhook-URL eintragen.
+
+## Bereits enthaltene fruehere Aenderungen
+
+- Grafische Diagramme (Donut/Linie) in allen drei Berichten (Tag/Monat/Jahr).
+- Kritischer Bug behoben, durch den zuvor alle Buttons nicht funktionierten.
 - Alle Daten jederzeit editierbar, auch an gesperrten Tagen.
-- Start-/Endzeit der Reinigung und Kommen-/Gehen-Zeit manuell editierbar.
-- Feld "Zweite Zimmernummer der Suite" entfernt.
-- WW-Zimmer haben keine eigene Zeile in den Farb-Tabellen mehr (zählen zur jeweiligen Farbe).
-- Getrennte Tabelle "Verdienst nach Zimmertyp" (Normal 5,00 € / Suite 6,50 €).
-- Klickbare Zeilen in Monats-/Jahresbericht zur direkten Navigation und Bearbeitung.
+- WW-Zimmer zaehlen zur jeweiligen Farbzeile, keine eigene Zeile mehr.
+- Getrennte Tabelle "Verdienst nach Zimmertyp" (Normal 5,00 EUR / Suite 6,50 EUR).
+- Klickbare Zeilen in Monats-/Jahresbericht zur direkten Navigation.
 
-## Installation
+## Installation der App-Dateien
 
-1. Alle Dateien in Ihr GitHub-Repository hochladen (bestehende Dateien vollständig überschreiben, am besten alte zuerst löschen).
-2. 1–2 Minuten warten, bis GitHub Pages neu gebaut hat.
-3. App auf dem Handy: Cache leeren bzw. PWA neu installieren, damit der Service Worker die neue Version lädt.
+1. Alle Dateien (ausser der .gs.txt-Datei, die gehoert ins Apps-Script-Projekt) in Ihr GitHub-Repository hochladen.
+2. 1-2 Minuten warten, bis GitHub Pages neu gebaut hat.
+3. Apps Script wie oben beschrieben einrichten und Webhook-URL an alle Mitarbeiter verteilen.
+4. App-Cache auf dem Handy leeren bzw. PWA neu installieren.
 
 ## Dateistruktur
 
 - index.html, app.js, styles.css, manifest.json, sw.js, icon-192.png, icon-512.png, README.md
+- AppsScript_fuer_Manager.gs.txt (nur fuer den Manager, wird in script.google.com eingefuegt)

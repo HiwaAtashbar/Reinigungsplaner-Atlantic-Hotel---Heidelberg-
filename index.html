@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="styles.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -123,6 +124,25 @@
         <input type="file" id="inputImportFile" accept="application/json" class="hidden">
       </label>
     </div>
+    <div class="settings-divider"></div>
+    <h4>Google Drive – Automatischer Upload</h4>
+    <label class="checkbox-label">
+      <input type="checkbox" id="inputGDriveEnabled">
+      Nach jeder fertigen Zimmerreinigung automatisch zu Google Drive senden
+    </label>
+    <label>Google Client-ID (aus Google Cloud Console)
+      <input type="text" id="inputGDriveClientId" placeholder="xxxxxxxx.apps.googleusercontent.com">
+    </label>
+    <label>Empfänger-E-Mail (z. B. Manager oder eigene E-Mail)
+      <input type="email" id="inputGDriveRecipientEmail" placeholder="manager@firma.com">
+    </label>
+    <div style="font-size:12px;color:var(--muted);margin:-2px 0 4px;">
+      Der Bericht wird in Google Drive des angemeldeten Mitarbeiters gespeichert und automatisch für diese E-Mail-Adresse freigegeben. So kann ein Manager die Berichte mehrerer Mitarbeiter an einer Stelle sammeln.
+    </div>
+    <div class="modal-actions column">
+      <button id="btnGDriveConnect" class="btn secondary full">Mit Google Drive verbinden</button>
+    </div>
+    <div id="gdriveStatus" style="font-size:12px;color:var(--muted);margin-top:6px;">Nicht verbunden.</div>
     <div class="modal-actions">
       <button id="btnCloseSettings" class="btn secondary">Schließen</button>
       <button id="btnSaveSettings" class="btn primary">Speichern</button>

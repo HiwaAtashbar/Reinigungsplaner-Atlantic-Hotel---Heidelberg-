@@ -447,6 +447,131 @@ function deleteRoomFromModal() {
   showToast("Zimmer gelöscht.");
 }
 
+/* ============================================================
+   Google Drive Integration – via zentrales Apps-Script-Webhook
+   (Jeder Mitarbeiter sendet Berichte ohne eigenes Google-Login;
+   alle Daten landen automatisch im Google Drive des Managers)
+   ============================================================ */
+const GDRIVE_STORE_KEY = "cleaning_planner_gdrive_v2";
+
+function getGDriveSettings() {
+  return loadAll(GDRIVE_STORE_KEY, { enabled: false, webhookUrl: "", employeeName: "", employeeEmail: "" });
+}
+function setGDriveSettings(s) {
+  saveAll(GDRIVE_STORE_KEY, s);
+}
+
+function updateGDriveStatusUI(text) {
+  const el = document.getElementById("gdriveStatus");
+  if (el) el.textContent = text;
+}
+
+function buildRoomReportPayload(room) {
+  const settings = getSettings();
+  const gs = getGDriveSettings();
+  const wage = room.isSuite ? settings.wageSuite : settings.wageNormal;
+  const durationMs = (room.startTime && room.endTime) ? (room.endTime - room.startTime) : null;
+
+  const textLines = [
+    `Reinigungsplaner – Zimmerbericht`,
+    `Mitarbeiter: ${gs.employeeName || "-"} ${gs.employeeEmail ? "(" + gs.employeeEmail + ")" : ""}`,
+    `Datum: ${room.date}`,
+    `Zimmernummer: ${room.number}`,
+    `Status: ${STATUS_CONFIG[room.status] ? STATUS_CONFIG[room.status].short : room.status}`,
+    `WW (Wäschewechsel): ${room.ww ? "Ja" : "Nein"}`,
+    `Suite: ${room.isSuite ? "Ja" : "Nein"}`,
+    `Startzeit: ${room.startTime ? formatTime(room.startTime) : "-"}`,
+    `Endzeit: ${room.endTime ? formatTime(room.endTime) : "-"}`,
+    `Dauer: ${durationMs != null ? formatDuration(durationMs) : "-"}`,
+    `Lohn: ${wage.toFixed(2)} €`,
+    `Erstellt am: ${new Date().toLocaleString("de-DE")}`
+  ];
+
+  return {
+    employeeName: gs.employeeName || "Unbekannt",
+    employeeEmail: gs.employeeEmail || "",
+    date: room.date,
+    roomNumber: room.number,
+    status: room.status,
+    ww: room.ww,
+    isSuite: room.isSuite,
+    startTime: room.startTime,
+    endTime: room.endTime,
+    durationMs: durationMs,
+    wage: wage,
+    reportText: textLines.join("\n"),
+    fileName: `Zimmer_${room.number}_${room.date}_${(gs.employeeName || "Mitarbeiter").replace(/\s+/g, "_")}_${Date.now()}.txt`
+  };
+}
+
+function uploadRoomReportToGDrive(room) {
+  const settings = getGDriveSettings();
+  if (!settings.enabled) return;
+  if (!settings.webhookUrl) {
+    showToast("Google Drive: Bitte zuerst die Webhook-URL in den Einstellungen eintragen.");
+    return;
+  }
+
+  const payload = buildRoomReportPayload(room);
+
+  fetch(settings.webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.text().catch(() => "");
+    })
+    .then(() => {
+      showToast(`Zimmer ${room.number}: Bericht wurde gesendet.`);
+      updateGDriveStatusUI("Zuletzt gesendet: " + new Date().toLocaleTimeString("de-DE"));
+    })
+    .catch((err) => {
+      showToast("Senden fehlgeschlagen: " + err.message);
+      updateGDriveStatusUI("Fehler beim letzten Senden.");
+    });
+}
+
+function testGDriveConnection() {
+  const settings = getGDriveSettings();
+  if (!settings.webhookUrl) {
+    showToast("Bitte zuerst die Webhook-URL eingeben.");
+    return;
+  }
+  const testPayload = {
+    employeeName: settings.employeeName || "Test",
+    employeeEmail: settings.employeeEmail || "",
+    date: todayStr(),
+    roomNumber: "TEST",
+    status: "blue",
+    ww: false,
+    isSuite: false,
+    startTime: Date.now() - 60000,
+    endTime: Date.now(),
+    durationMs: 60000,
+    wage: 0,
+    reportText: `Testverbindung vom Reinigungsplaner\nMitarbeiter: ${settings.employeeName || "-"}\nGesendet am: ${new Date().toLocaleString("de-DE")}`,
+    fileName: `Test_${Date.now()}.txt`
+  };
+
+  updateGDriveStatusUI("Sende Test…");
+  fetch(settings.webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(testPayload)
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      updateGDriveStatusUI("Test erfolgreich gesendet ✓ (" + new Date().toLocaleTimeString("de-DE") + ")");
+      showToast("Testverbindung erfolgreich.");
+    })
+    .catch(err => {
+      updateGDriveStatusUI("Test fehlgeschlagen: " + err.message);
+      showToast("Testverbindung fehlgeschlagen.");
+    });
+}
+
 function handleRoomAction(id, action) {
   const rooms = getRooms();
   const room = rooms.find(r => r.id === id);
@@ -466,6 +591,10 @@ function handleRoomAction(id, action) {
   }
   setRooms(rooms);
   renderRoomList();
+
+  if (action === "end") {
+    uploadRoomReportToGDrive(room);
+  }
 }
 
 /* ============================================================
@@ -948,6 +1077,14 @@ function openSettingsModal() {
   const s = getSettings();
   document.getElementById("inputWageNormal").value = s.wageNormal;
   document.getElementById("inputWageSuite").value = s.wageSuite;
+
+  const gs = getGDriveSettings();
+  document.getElementById("inputGDriveEnabled").checked = gs.enabled;
+  document.getElementById("inputGDriveWebhook").value = gs.webhookUrl || "";
+  document.getElementById("inputEmployeeName").value = gs.employeeName || "";
+  document.getElementById("inputEmployeeEmail").value = gs.employeeEmail || "";
+  updateGDriveStatusUI(gs.webhookUrl ? "Konfiguriert. Testen Sie die Verbindung." : "Nicht konfiguriert.");
+
   document.getElementById("settingsModal").classList.remove("hidden");
 }
 function closeSettingsModal() {
@@ -957,6 +1094,13 @@ function saveSettingsFromModal() {
   const wageNormal = parseFloat(document.getElementById("inputWageNormal").value) || 0;
   const wageSuite = parseFloat(document.getElementById("inputWageSuite").value) || 0;
   setSettings({ wageNormal, wageSuite });
+
+  const gdriveEnabled = document.getElementById("inputGDriveEnabled").checked;
+  const webhookUrl = document.getElementById("inputGDriveWebhook").value.trim();
+  const employeeName = document.getElementById("inputEmployeeName").value.trim();
+  const employeeEmail = document.getElementById("inputEmployeeEmail").value.trim();
+  setGDriveSettings({ enabled: gdriveEnabled, webhookUrl, employeeName, employeeEmail });
+
   closeSettingsModal();
   renderTab();
   showToast("Einstellungen gespeichert.");
@@ -1103,6 +1247,7 @@ function bindEvents() {
   document.getElementById("btnSettings").addEventListener("click", openSettingsModal);
   document.getElementById("btnCloseSettings").addEventListener("click", closeSettingsModal);
   document.getElementById("btnSaveSettings").addEventListener("click", saveSettingsFromModal);
+  document.getElementById("btnGDriveConnect").addEventListener("click", testGDriveConnection);
   document.getElementById("btnExportData").addEventListener("click", exportData);
   document.getElementById("inputImportFile").addEventListener("change", (e) => {
     if (e.target.files.length > 0) {
